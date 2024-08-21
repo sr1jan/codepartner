@@ -8,10 +8,9 @@ CodePartner is a Neovim plugin that provides AI-powered code explanations and as
 - Follow-up questions and conversations about your code
 - Customizable floating window for explanations
 
-<!-- <iframe width="640" height="480" src="https://drive.google.com/file/d/1JZegm6X9fMsVLwcP4LhrC8Eb8eQn9Geu/preview" frameborder="0" allowfullscreen></iframe> -->
 
-<iframe src="https://drive.google.com/file/d/1JZegm6X9fMsVLwcP4LhrC8Eb8eQn9Geu/preview" frameborder="0" allowfullscreen
-  style="width: 100vw; height: 640px; display: block; margin: 0 auto; max-width: 800px; margin-left: auto; margin-right: auto;"></iframe>
+https://github.com/user-attachments/assets/e1eb0253-d14b-40b8-9445-7ae0d4f1ba25
+
 
 ## Requirements
 
