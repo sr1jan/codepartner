@@ -21,47 +21,30 @@ logger = setup_logger(
 )
 
 
-def get_explanation(text, conversation_id=None):
-    if conversation_id not in conversations:
-        conversations[conversation_id] = model.conversation()
-
-    conversation = conversations[conversation_id]
-    prompt = f"Please explain the following content:\n\n{text}"
-    response = conversation.prompt(prompt, stream=True)
-    return response
-
-
 @app.route("/explain", methods=["POST"])
 def explain_text():
     data = request.json
-    text = data["text"]
+    text = data.get("text", "")
+    query = data.get("query", "")
     conversation_id = data.get("conversation_id")
     logger.info(f"[EXPLAIN] CONVERSATION_ID: {conversation_id}")
 
-    explanation_stream = get_explanation(text, conversation_id)
+    if conversation_id not in conversations:
+        conversations[conversation_id] = model.conversation()
+    conversation = conversations[conversation_id]
+
+    if len(query) == 0:
+        query = "Please explain the above content!"
+
+    prompt = ""
+    if len(text) > 0:
+        prompt = f"{text}\n\n"
+    prompt += query
+
+    explanation_stream = conversation.prompt(prompt, stream=True)
 
     def generate():
         for chunk in explanation_stream:
-            yield chunk
-
-    return Response(generate(), content_type="text/plain")
-
-
-@app.route("/follow_up", methods=["POST"])
-def follow_up_query():
-    data = request.json
-    query = data["query"]
-    conversation_id = data["conversation_id"]
-    logger.info(f"[FOLLOW_UP] CONVERSATION_ID: {conversation_id}")
-
-    if conversation_id not in conversations:
-        return Response("Conversation not found", status=404)
-
-    conversation = conversations[conversation_id]
-    response = conversation.prompt(query, stream=True)
-
-    def generate():
-        for chunk in response:
             yield chunk
 
     return Response(generate(), content_type="text/plain")

@@ -145,10 +145,20 @@ function M.get_visual_selection()
     return table.concat(lines, "\n")
 end
 
-function M.call_explanation_api(text, callback)
-    local escaped_text = text:gsub("\n", "\\n"):gsub("'", "'\\''")
-    local cmd = string.format([[curl -v -X POST -H "Content-Type: application/json" --data '{"text": "%s", "conversation_id": "%s"}' %s/explain]],
-    escaped_text, M.conversation_id, M.config.server_url)
+function M.call_explanation_api(text, query, callback)
+    M.append_to_buffer(M.explanation_buf, "\n\nGenerating response...\n\n")
+
+    local escaped_text = ""
+    local escaped_query = ""
+    if text ~= nil then
+      escaped_text = text:gsub("\n", "\\n"):gsub("'", "'\\''")
+    end
+    if query ~= nil then
+      escaped_query = query:gsub("\n", "\\n"):gsub("'", "'\\''")
+    end
+
+    local cmd = string.format([[curl -v -X POST -H "Content-Type: application/json" --data '{"text": "%s", "query": "%s", "conversation_id": "%s"}' %s/explain]],
+    escaped_text, escaped_query, M.conversation_id, M.config.server_url)
     local full_response = ""
     local job_id = vim.fn.jobstart(cmd, {
         on_stdout = function(_, data)
@@ -230,48 +240,20 @@ function M.handle_user_input()
     -- Exit insert mode
     vim.api.nvim_command("stopinsert")
     -- Process the query
+    M.conversation_history[#M.conversation_history + 1] = {type = "query", content = query}
     M.send_follow_up_query(query)
 end
 
 function M.send_follow_up_query(query)
-    M.conversation_history[#M.conversation_history + 1] = {type = "query", content = query}
-    M.append_to_buffer(M.explanation_buf, "\n\nGenerating response...\n\n")
-
-    local escaped_query = query:gsub("\n", "\\n"):gsub("'", "'\\''")
-    local cmd = string.format([[curl -v -H "Content-Type: application/json" --data '{"query": "%s", "conversation_id": "%s"}' %s/follow_up]],
-    escaped_query, M.conversation_id, M.config.server_url)
-
-    local full_response = ""
-    local job_id = vim.fn.jobstart(cmd, {
-        on_stdout = function(_, data)
-            if data then
-                for _, line in ipairs(data) do
-                    if line ~= "" then
-                        full_response = full_response .. line .. "\n"
-                    end
-                end
-            end
-        end,
-        on_stderr = function(_, data)
-            print("Error: " .. vim.inspect(data))
-        end,
-        on_exit = function(_, exit_code)
-            if exit_code ~= 0 then
-                print("API call failed with exit code: " .. exit_code)
-                M.append_to_buffer(M.explanation_buf, "API CALL FAILED! MAKE SURE CODEPARTNER SERVER IS RUNNING!")
-            else
-                M.conversation_history[#M.conversation_history + 1] = {type = "response", content = full_response}
-                M.display_conversation_history()
-                M.prompt_for_follow_up()
-            end
-        end,
-    })
-
-    if job_id == 0 then
-        print("Invalid arguments in jobstart()")
-    elseif job_id == -1 then
-        print("Command is not executable")
-    end
+    M.call_explanation_api(nil, query, function(response)
+        if response then
+            M.conversation_history[#M.conversation_history + 1] = {type = "response", content = response}
+            M.display_conversation_history()
+            M.prompt_for_follow_up()
+        else
+            M.append_to_buffer(M.explanation_buf, "Failed to get explanation from API\n")
+        end
+    end)
 end
 
 
@@ -326,16 +308,21 @@ function M.show_explanation()
     -- Generate a new conversation ID
     M.conversation_id = tostring(os.time())
 
-
     -- Set buffer options
     vim.api.nvim_buf_set_option(M.explanation_buf, 'buftype', 'nofile')
     vim.api.nvim_buf_set_option(M.explanation_buf, 'swapfile', false)
     vim.api.nvim_buf_set_option(M.explanation_buf, 'bufhidden', 'wipe')
     vim.api.nvim_buf_set_option(M.explanation_buf, 'filetype', 'markdown')
 
-    M.call_explanation_api(selected_text, function(explanation)
-        if explanation then
-            M.conversation_history[#M.conversation_history + 1] = {type = "explanation", content = explanation}
+    local user_query = vim.fn.input("Enter your query (optional): ")
+    local conv_type = "explanation"
+    if user_query and user_query ~= "" then
+      conv_type = "response"
+    end
+
+    M.call_explanation_api(selected_text, user_query, function(response)
+        if response then
+            M.conversation_history[#M.conversation_history + 1] = {type = conv_type, content = response}
             M.display_conversation_history()
             M.prompt_for_follow_up()
         else
