@@ -28,6 +28,7 @@ def explain_text():
     query = data.get("query", "")
     conversation_id = data.get("conversation_id")
     logger.info(f"[EXPLAIN] CONVERSATION_ID: {conversation_id}")
+    logger.info(f"[EXPLAIN] QUERY: {query}")
 
     if conversation_id not in conversations:
         conversations[conversation_id] = model.conversation()

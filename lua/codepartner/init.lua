@@ -150,15 +150,29 @@ function M.call_explanation_api(text, query, callback)
 
     local escaped_text = ""
     local escaped_query = ""
+
     if text ~= nil then
-      escaped_text = text:gsub("\n", "\\n"):gsub("'", "'\\''")
-    end
-    if query ~= nil then
-      escaped_query = query:gsub("\n", "\\n"):gsub("'", "'\\''")
+      escaped_text = text:gsub("[\"'\n]", {
+          ['"'] = '\\"',
+          ["'"] = "'\\''",
+          ["\n"] = "\\n"
+      })
     end
 
-    local cmd = string.format([[curl -v -X POST -H "Content-Type: application/json" --data '{"text": "%s", "query": "%s", "conversation_id": "%s"}' %s/explain]],
-    escaped_text, escaped_query, M.conversation_id, M.config.server_url)
+    if query ~= nil then
+      escaped_query = query:gsub("[\"'\n]", {
+          ['"'] = '\\"',
+          ["'"] = "'\\''",
+          ["\n"] = "\\n"
+      })
+    end
+
+    local request_body = string.format('{"text": "%s", "query": "%s", "conversation_id": "%s"}',
+    escaped_text, escaped_query, M.conversation_id)
+
+    local cmd = string.format([[curl -v -X POST -H "Content-Type: application/json" --data '%s' %s/explain]],
+    request_body, M.config.server_url)
+
     local full_response = ""
     local job_id = vim.fn.jobstart(cmd, {
         on_stdout = function(_, data)
