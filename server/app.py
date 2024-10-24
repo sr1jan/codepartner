@@ -10,7 +10,8 @@ API_KEY = os.environ.get("CODEPARTNER_API_KEY")
 if not API_KEY:
     raise ValueError("CODEPARTNER_API_KEY environment variable is not set")
 
-model = llm.get_model("groq-openai-llama3")
+model = llm.get_model("groq-llama3.1-70b")
+# model = llm.get_model("Meta-Llama-3")
 model.key = API_KEY
 
 conversations = {}
@@ -35,7 +36,7 @@ def explain_text():
     conversation = conversations[conversation_id]
 
     if len(query) == 0:
-        query = "Please explain the above content!"
+        query = "Please explain the above content! Provide brief examples if it helps the explanation."
 
     prompt = ""
     if len(text) > 0:

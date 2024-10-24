@@ -145,6 +145,23 @@ function M.get_visual_selection()
     return table.concat(lines, "\n")
 end
 
+local function escape_for_json(text)
+    if text == nil then
+        return nil
+    end
+
+    local escaped = text:gsub('[%z\1-\31\\"]', function(c)
+        local replacements = {
+            ['\0'] = '\\u0000', ['\t'] = '\\t',
+            ['\n'] = '\\n', ['\r'] = '\\r',
+            ['"']  = '\\"', ['\\'] = '\\\\'
+        }
+        return replacements[c] or string.format('\\u%04x', c:byte())
+    end)
+
+    return escaped
+end
+
 function M.call_explanation_api(text, query, callback)
     M.append_to_buffer(M.explanation_buf, "\n\nGenerating response...\n\n")
 
@@ -152,19 +169,21 @@ function M.call_explanation_api(text, query, callback)
     local escaped_query = ""
 
     if text ~= nil then
-      escaped_text = text:gsub("[\"'\n]", {
-          ['"'] = '\\"',
-          ["'"] = "'\\''",
-          ["\n"] = "\\n"
-      })
+      escaped_text = escape_for_json(text)
+      -- escaped_text = text:gsub("[\"'\n]", {
+      --     ['"'] = '\\"',
+      --     ["'"] = "'\\''",
+      --     ["\n"] = "\\n"
+      -- })
     end
 
     if query ~= nil then
-      escaped_query = query:gsub("[\"'\n]", {
-          ['"'] = '\\"',
-          ["'"] = "'\\''",
-          ["\n"] = "\\n"
-      })
+      escaped_query = escape_for_json(query)
+      -- escaped_query = query:gsub("[\"'\n]", {
+      --     ['"'] = '\\"',
+      --     ["'"] = "'\\''",
+      --     ["\n"] = "\\n"
+      -- })
     end
 
     local request_body = string.format('{"text": "%s", "query": "%s", "conversation_id": "%s"}',
@@ -324,8 +343,6 @@ function M.show_explanation()
 
     -- Set buffer options
     vim.api.nvim_buf_set_option(M.explanation_buf, 'buftype', 'nofile')
-    vim.api.nvim_buf_set_option(M.explanation_buf, 'swapfile', false)
-    vim.api.nvim_buf_set_option(M.explanation_buf, 'bufhidden', 'wipe')
     vim.api.nvim_buf_set_option(M.explanation_buf, 'filetype', 'markdown')
 
     local user_query = vim.fn.input("Enter your query (optional): ")
@@ -348,10 +365,57 @@ end
 
 function M.get_theme_colors()
     local background = "dark"
-    -- Rich, dark background with a hint of blue
-    local dialog_bg = "#1E1E2E"
-    -- Soft off-white for primary text color
-    local dialog_fg = "#CDD6F4"
+
+    -- local dialog_bg = "#22092C"
+    -- local dialog_fg = "#BED754"
+
+    local bg = "#1c1c1c"  -- dark background
+    local fg = "#d0d0d0"  -- light text
+    local border = "#585858"  -- medium grey border
+
+    -- local dialog_bg = "#03055B"  -- Dark navy blue
+    -- local dialog_fg = "#FFFF99"  -- Pale yellow
+
+    -- **1. Dark Navy and Light Gray**
+    -- local dialog_bg = "#03055B"  -- Dark navy blue
+    -- local dialog_fg = "#CCCCCC"  -- Light gray
+    --
+    -- **2. Charcoal and Mint**
+    -- local dialog_bg = "#333333"  -- Charcoal gray
+    -- local dialog_fg = "#B2FFFC"  -- Mint green
+    --
+    -- **3. Midnight Blue and Cream**
+    -- dialog_bg = "#1A1D23"  -- Midnight blue
+    -- dialog_fg = "#F5F5DC"  -- Cream
+    --
+    -- **4. Dark Gray and Neon Green**
+    -- local dialog_bg = "#2F2F2F"  -- Dark gray
+    -- local dialog_fg = "#33CC33"  -- Neon green
+    --
+    -- **5. Navy Blue and Gold**
+    -- local dialog_bg = "#030074"  -- Navy blue
+    -- local dialog_fg = "#FFD700"  -- Gold
+    --
+    -- **6. Dark Purple and Pale Yellow**
+    -- local dialog_bg = "#3B3F54"  -- Dark purple
+    -- local dialog_fg = "#FFFF99"  -- Pale yellow
+    --
+    -- **7. Black and White**
+    -- local dialog_bg = "#000000"  -- Black
+    -- local dialog_fg = "#FFFFFF"  -- White
+    --
+    -- **8. Dark Brown and Light Orange**
+    -- local dialog_bg = "#452B1F"  -- Dark brown
+    -- local dialog_fg = "#FFC107"  -- Light orange
+    --
+    -- **9. Teal and Coral**
+    -- local dialog_bg = "#0097A7"  -- Teal
+    -- local dialog_fg = "#FFC67D"  -- Coral
+    --
+    -- **10. Dark Green and Light Blue**
+    -- local dialog_bg = "#2F4F4F"  -- Dark green
+    -- local dialog_fg = "#87CEEB"  -- Light blue
+
     -- Additional colors inspired by the image
     local keyword_color = "#F38BA8"  -- Soft pink for keywords
     local string_color = "#A6E3A1"   -- Muted green for strings
@@ -360,7 +424,7 @@ function M.get_theme_colors()
     local comment_color = "#6C7086"  -- Grayish for comments
     local type_color = "#89DCEB"     -- Cyan for types
 
-    return dialog_bg, dialog_fg, keyword_color, string_color, number_color, function_color, comment_color, type_color
+    return dialog_bg, dialog_fg, border, keyword_color, string_color, number_color, function_color, comment_color, type_color
 end
 
 function M.create_float_window()
@@ -383,6 +447,31 @@ function M.create_float_window()
 
     local win = vim.api.nvim_open_win(buf, true, opts)
 
+    -- Apply the theme colors
+    local bg, fg, border = M.get_theme_colors()
+      -- Set all necessary highlight groups
+    vim.cmd(string.format([[
+        highlight MyFloatNormal guibg=%s guifg=%s
+        highlight MyFloatEndOfBuffer guibg=%s guifg=%s
+        highlight MyFloatSignColumn guibg=%s
+        highlight MyFloatBorder guifg=%s guibg=%s
+        highlight MyFloatCursorLine guibg=#303030
+    ]], bg, fg, bg, bg, bg, border, bg))
+
+    -- Apply highlights to all window areas
+    vim.api.nvim_win_set_option(win, 'winhl', table.concat({
+        'Normal:MyFloatNormal',
+        'EndOfBuffer:MyFloatEndOfBuffer',
+        'SignColumn:MyFloatSignColumn',
+        'NormalFloat:MyFloatNormal',
+        'FloatBorder:MyFloatBorder',
+        'CursorLine:MyFloatCursorLine'
+    }, ','))
+
+
+    -- vim.cmd(string.format("highlight MyFloatNormal guibg=%s guifg=%s", bg, fg))
+    -- vim.api.nvim_win_set_option(win, 'winhl', 'Normal:MyFloatNormal')
+
     vim.api.nvim_buf_set_option(buf, 'modifiable', true)
     vim.api.nvim_buf_set_option(buf, 'buftype', 'nofile')
 
@@ -394,11 +483,6 @@ function M.create_float_window()
     vim.api.nvim_win_set_option(win, 'sidescrolloff', 5)
     vim.api.nvim_win_set_option(win, 'scrolloff', 2)
 
-    -- Apply the theme colors
-    local bg, fg, _, _, _, border = M.get_theme_colors()
-    vim.api.nvim_win_set_option(win, 'winhl', 'Normal:MyFloatNormal,FloatBorder:MyFloatBorder')
-    vim.cmd(string.format("highlight MyFloatNormal guibg=%s guifg=%s", bg, fg))
-    vim.cmd(string.format("highlight MyFloatBorder guifg=%s guibg=%s", border, bg))
 
     -- Store references globally
     M.explanation_win = win
