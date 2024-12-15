@@ -2,7 +2,7 @@ local M = {}
 
 M.config = {
   api_key = nil,
-  server_url = "http://localhost:5000",
+  server_url = "http://localhost:5001",
   auto_start_server = true
 }
 
@@ -474,6 +474,7 @@ function M.create_float_window()
 
     vim.api.nvim_buf_set_option(buf, 'modifiable', true)
     vim.api.nvim_buf_set_option(buf, 'buftype', 'nofile')
+    vim.api.nvim_buf_set_option(buf, 'filetype', 'markdown')
 
     -- Set window options for better Markdown viewing
     vim.api.nvim_win_set_option(win, 'wrap', true)
@@ -483,12 +484,9 @@ function M.create_float_window()
     vim.api.nvim_win_set_option(win, 'sidescrolloff', 5)
     vim.api.nvim_win_set_option(win, 'scrolloff', 2)
 
-
     -- Store references globally
     M.explanation_win = win
     M.explanation_buf = buf
-
-    vim.api.nvim_buf_set_option(M.explanation_buf, 'modifiable', true)
 
     -- Set up local keybindings for the explanation buffer
     local keymap_opts = { noremap = true, silent = true }
